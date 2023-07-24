@@ -38,19 +38,19 @@ def eps_RAND_UP(input_set, M, distribution):
         distribution: sampling distribution
     """
     i = 1
-    ys = np.zeros((dim_input, M))
+    ys = [[] for _ in range(len(input_set))] #np.zeros((dim_input, M))
 
     if distribution["type"] == "generic":
         while i < M:
             sample = np.random.normal(distribution["mean"], distribution["std"], (1, dim_input))
-            for set in input_set:
+            for (_, set) in enumerate(input_set):
                 verts_bef = set.vertices
                 new_set = ConvexHull(set.points, incremental=True)
                 new_set.add_points(sample, restart=False)
                 vert_after = new_set.vertices
 
                 if np.array_equal(set.points[verts_bef, :], new_set.points[vert_after, :]):
-                    ys[:, i-1] = f(sample.T).reshape(-1,)
+                    ys[_].append(f(sample.T).reshape(-1,))
                     i = i+1
                     break
 
@@ -61,32 +61,29 @@ def eps_RAND_UP(input_set, M, distribution):
 
         num_samples_per_face = int(np.floor(M/num_faces))
 
-        for set in input_set:
+        for (_, set) in enumerate(input_set):
             for idx in range(len(set.vertices)):
                 step = 1/num_samples_per_face
-                for _ in range(num_samples_per_face):
-                    alpha = _*step
+                for __ in range(num_samples_per_face):
+                    alpha = __*step
                     sample = (1-alpha)*set.points[set.vertices[idx], :] + alpha*set.points[set.vertices[(idx+1)%len(set.vertices)], :]
-                    ys[:, i-1] = f(sample.reshape(-1,1)).reshape(-1,)
+                    ys[_].append(f(sample.reshape(-1,1)).reshape(-1,))
                     i = i+1
 
-        ys = ys[:, :i-1]
 
-    output_set = ConvexHull(ys.T)
+    output_set = [ConvexHull(np.array(ys[_])) for _ in range(len(input_set))]
 
     return output_set
 
 distr = {}
-distr["type"] = "border"
+distr["type"] = "generic"
 distr["mean"] = 0.
 distr["std"] = 1.
 
 y = eps_RAND_UP([input_set], M, distr)
 
-hausdorff_distance = Hausdorff_dist_two_convex_hulls(y, output_set)
+hausdorff_distance = Hausdorff_dist_two_convex_hulls(y[0], output_set)
 print("The Hausdorff distance between the true output set and the estimated output set is: "+str(hausdorff_distance) + " for the sampling method " + str(distr["type"]))
-convex_hull_plot_2d(y)
-convex_hull_plot_2d(output_set)
 plt.show()
 
 
