@@ -24,26 +24,27 @@ M = 1000
 x_dim = 2
 r    = 1. # not tested with r not equal to 1.
 X_mu = np.zeros(x_dim)
-X_Q  = r**2*np.eye(x_dim)
+X_Q  = (1/r)**2*np.eye(x_dim)
+
 # # Reachability map
 def f(x, L):
-	# x - (2, M) with M number of samples
-	# L - scalar
-	A = np.array([[L,0.],[0.,1.]])
-	return A @ x
+    # x - (2, M) with M number of samples
+    # L - scalar
+    A = np.array([[L,0.],[0.,1.]])
+    return A @ x
 def Y_Q_matrix(X_Q, L):
-	# X_Q - (2, 2) - Q-shape matrix parameterizing ellpisoidal set Y,
-	#                such that (yi-Y_mu)^T Y_Q^{-1} (yi-Y_mu) <= 1.
-	# L - scalar
-	A = np.array([[L,0.],[0.,1.]])
-	Y_Q = A @ X_Q @ A.T
-	return Y_Q
+    # X_Q - (2, 2) - Q-shape matrix parameterizing ellpisoidal set Y,
+    #                such that (yi-Y_mu)^T Y_Q^{-1} (yi-Y_mu) <= 1.
+    # L - scalar
+    A = np.array([[L,0.],[0.,1.]])
+    Y_Q = A @ X_Q @ A.T
+    return Y_Q
 # ----------------------
 
 # ----------------------
 def weighted_sample_pts_unit_ball(dim, NB_pts, alpha=1.0, beta=1.0):
     """
-    Uniformly samples points on a d-dimensional sphere (boundary of a ball)
+    Samples points on a d-dimensional ball (boundary of a ball)
     Points characterized by    ||x||_2 = 1
     arguments:  dim    - nb of dimensions
                 NB_pts - nb of points
@@ -54,13 +55,15 @@ def weighted_sample_pts_unit_ball(dim, NB_pts, alpha=1.0, beta=1.0):
     """
     us    = np.random.normal(0,1,(dim,NB_pts))
     norms = np.linalg.norm(us, 2, axis=0)
+
     if alpha==1. and beta==1.:
-    	# uniform distribution
-    	rs = np.random.random(NB_pts)**(1.0/dim)
+        # uniform distribution
+        rs = np.random.random(NB_pts)**(1.0/dim)
     else:
-    	rs = np.random.beta(alpha, beta, size=(NB_pts))**(1.0/dim)
-    pts   = rs*us / norms
+        rs = np.random.beta(alpha, beta, size=(NB_pts))**(1.0/dim)
+    pts = rs*us / norms
     return pts
+
 def weighted_sample_pts_in_ellipsoid(mu, Q, NB_pts, alpha=1.0, beta=1.0):
     """
     Uniformly samples points in an ellipsoid, specified as
@@ -77,27 +80,27 @@ def weighted_sample_pts_in_ellipsoid(mu, Q, NB_pts, alpha=1.0, beta=1.0):
 
 # ----------------------
 def D_max_packing_nb_ball(dim, r, eps):
-	D = 0.
-	if dim == 2:
-		D = (2.*np.pi*r) / (2.*eps) + 1   # place balls on circle
-	else:
-		D = (2*(2*r)/eps + 1.)**dim # Dumbgen, Walther, Rates of (...), 1996
-	return D
+    D = 0.
+    if dim == 2:
+        D = (2.*np.pi*r) / (2.*eps) + 1   # place balls on circle
+    else:
+        D = (2*(2*r)/eps + 1.)**dim # Dumbgen, Walther, Rates of (...), 1996
+    return D
 def bound_conservatism_prob(dim, r, L, eps, M, alpha, beta):
-	Q = r**2*np.eye(dim)
-	eps_bar = eps/(2*L)
-	D = D_max_packing_nb_ball(dim, r, eps_bar)
-	vol_sampling = volume_intersection_ndim_balls(dim, r, r, eps_bar)
-	p0lambda_2 = vol_sampling/volume_ellipsoid(Q)
+    Q = r**2*np.eye(dim)
+    eps_bar = eps/(2*L)
+    D = D_max_packing_nb_ball(dim, r, eps_bar)
+    vol_sampling = volume_intersection_ndim_balls(dim, r, r, eps_bar)
+    p0lambda_2 = vol_sampling/volume_ellipsoid(Q)
 
-	# Assumes r=1
-	distrib  = beta_distribution(alpha, beta)
-	p0alpha  = (1. - distrib.cdf((r-eps_bar)**dim))
-	p0alpha /= (1-(r-eps_bar)**dim)
-	p0lambda_2 = p0alpha * p0lambda_2
+    # Assumes r=1
+    distrib  = beta_distribution(alpha, beta)
+    p0alpha  = (1. - distrib.cdf((r-eps_bar)**dim))
+    p0alpha /= (1-(r-eps_bar)**dim)
+    p0lambda_2 = p0alpha * p0lambda_2
 
-	delta_M = D*((1-p0lambda_2)**M)
-	return np.maximum(1-delta_M, 0.)
+    delta_M = D*((1-p0lambda_2)**M)
+    return np.maximum(1-delta_M, 0.)
 # ----------------------
 
 # ----------------------
@@ -117,25 +120,25 @@ N_runs = 100
 haus_dists_exp  = np.zeros((N_alphas,N_lipsch,N_runs))
 haus_dists_theo = np.zeros((N_alphas,N_lipsch))
 for j, L in enumerate(L_vec):
-	print("L =", L)
-	Y_mu        = f(X_mu, L)
-	Y_Q         = Y_Q_matrix(X_Q, L)
-	ys_true     = sample_pts_ellipsoid_surface(Y_mu, Y_Q, NB_pts=1000)
-	Y_true_hull = scipy.spatial.ConvexHull(ys_true.T)
-	for i, alpha in enumerate(alpha_vec):
-		# Compute the theoretical bound
-		delta = 0.001
-		f_bound_epsilon = lambda epsilon: bound_conservatism_prob(x_dim, r, L, epsilon, M, alpha, beta)
-		f_delta_eps = lambda epsilon: f_bound_epsilon(epsilon)-delta
-		eps_sol = bisect(f_delta_eps, 1e-7, r)
-		haus_dists_theo[i,j] = eps_sol
+    print("L =", L)
+    Y_mu        = f(X_mu, L)
+    Y_Q         = Y_Q_matrix(X_Q, L)
+    ys_true     = sample_pts_ellipsoid_surface(Y_mu, Y_Q, NB_pts=1000)
+    Y_true_hull = scipy.spatial.ConvexHull(ys_true.T)
+    for i, alpha in enumerate(alpha_vec):
+        # Compute the theoretical bound
+        delta = 0.001
+        f_bound_epsilon = lambda epsilon: bound_conservatism_prob(x_dim, r, L, epsilon, M, alpha, beta)
+        f_delta_eps = lambda epsilon: f_bound_epsilon(epsilon)-delta
+        eps_sol = bisect(f_delta_eps, 1e-7, r)
+        haus_dists_theo[i,j] = eps_sol
 
-		# Sample to get an empirical estimate
-		for k in range(N_runs):
-			xs = weighted_sample_pts_in_ellipsoid(X_mu, X_Q, M, alpha, beta)
-			ys = f(xs, L)
-			Y_est_hull = scipy.spatial.ConvexHull(ys.T)
-			haus_dists_exp[i,j,k] = Hausdorff_dist_two_convex_hulls(Y_true_hull, Y_est_hull)
+        # Sample to get an empirical estimate
+        for k in range(N_runs):
+            xs = weighted_sample_pts_in_ellipsoid(X_mu, X_Q, M, alpha, beta)
+            ys = f(xs, L)
+            Y_est_hull = scipy.spatial.ConvexHull(ys.T)
+            haus_dists_exp[i,j,k] = Hausdorff_dist_two_convex_hulls(Y_true_hull, Y_est_hull)
 # ----------------------
 
 # ----------------------
@@ -145,14 +148,14 @@ Z = [[0,0],[0,0]]
 CS3 = plt.contourf(Z, np.linspace(1.,L_max,num=201), cmap=pl.cm.bwr)
 plt.clf()
 for j in range(N_lipsch):
-	haus = haus_dists_exp[:,j,:]
-	mean_haus, stds_haus = np.mean(haus, 1), np.sqrt(np.var(haus, axis=1))
-	plt.plot(alpha_vec, mean_haus, 
-			 color=colors[j], linewidth=2)
-	# plt.fill_between(alpha_vec, mean_haus-3.*stds_haus, mean_haus+3.*stds_haus, 
+    haus = haus_dists_exp[:,j,:]
+    mean_haus, stds_haus = np.mean(haus, 1), np.sqrt(np.var(haus, axis=1))
+    plt.plot(alpha_vec, mean_haus, 
+             color=colors[j], linewidth=2)
+    # plt.fill_between(alpha_vec, mean_haus-3.*stds_haus, mean_haus+3.*stds_haus, 
  #                                     color=colors[j], alpha=0.2)
-	plt.plot(alpha_vec, haus_dists_theo[:,j], 
-			 color=colors[j], linestyle="--", linewidth=2)
+    plt.plot(alpha_vec, haus_dists_theo[:,j], 
+             color=colors[j], linestyle="--", linewidth=2)
 
 plt.xlabel(r'$\alpha$', fontsize=20)
 plt.ylabel(r'$d_H(\hat{Y}^M,Y)$', fontsize=20)
